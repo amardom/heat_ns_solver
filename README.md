@@ -43,14 +43,7 @@ $$
 =\alpha\nabla^2T
 $$
 
-Here $\mathbf{u}=(u,v)$ is velocity, $p$ pressure, $T$ temperature,
-$\rho$ density, $\nu$ kinematic viscosity and $\alpha$ thermal diffusivity.
-$\beta$ is the thermal expansion coefficient and $T_{\mathrm{ref}}$ the reference temperature.
-The reference hydrostatic pressure is absorbed into $p$.
-The incompressibility constraint is $\nabla\cdot\mathbf{u}=0$.
-The optional terms $a_x$ and $g\beta(T-T_{\mathrm{ref}})$ drive the flow;
-the latter is the Boussinesq approximation: warmer fluid accelerates upward.
-The $y$ axis points upward and $g$ is a positive magnitude.
+Here $\mathbf{u}=(u,v)$ is velocity, $t$ time, $p$ pressure relative to the reference hydrostatic state, $T$ temperature, $\rho$ reference density, $\nu$ kinematic viscosity, and $\alpha$ thermal diffusivity. $a_x$ is an imposed horizontal acceleration (in Poiseuille, $a_x=-(1/\rho)\,dp_{\mathrm{imposed}}/dx$), $g$ the positive gravitational acceleration magnitude, $\beta$ the thermal expansion coefficient, and $T_{\mathrm{ref}}$ the reference temperature. $\mathbf{e}_x=(1,0)$ and $\mathbf{e}_y=(0,1)$ are unit vectors, with $y$ pointing upward; $g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y$ is the Boussinesq buoyancy acceleration. $\nabla$ and $\nabla^2$ denote the gradient and Laplacian operators; incompressibility requires $\nabla\cdot\mathbf{u}=0$.
 
 We use a uniform staggered grid: $p,T$ at cell centres, $u$ on vertical
 faces and $v$ on horizontal faces. Advection uses first-order upwind
