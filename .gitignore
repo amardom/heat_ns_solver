@@ -1,0 +1,5 @@
+build*/
+results*/
+__pycache__/
+.venv/
+/docs/media/*.mp4
