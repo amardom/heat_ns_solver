@@ -32,7 +32,7 @@ with constant material properties.
 $$
 \frac{\partial \mathbf{u}}{\partial t}
 +(\mathbf{u}\cdot\nabla)\mathbf{u}
-=-\frac{1}{\rho}\nabla p+\nu\nabla^2\mathbf{u}
+=-\frac{1}{\rho}\nabla P+\nu\nabla^2\mathbf{u}
 +a_x\mathbf{e}_x+g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y
 $$
 
@@ -43,10 +43,10 @@ $$
 =\alpha\nabla^2T
 $$
 
-Here $`\mathbf{u}=(u,v)`$ is velocity, $`t`$ time, $`p`$ pressure relative to the reference hydrostatic state, $`T`$ temperature, $`\rho`$ reference density, $`\nu`$ kinematic viscosity, and $`\alpha`$ thermal diffusivity. $`a_x`$ is an imposed horizontal acceleration (in Poiseuille, $`a_x=-(1/\rho)\,dp_{\mathrm{imposed}}/dx`$), $`g`$ the positive gravitational acceleration magnitude, $`\beta`$ the thermal expansion coefficient, and $`T_{\mathrm{ref}}`$ the reference temperature. $`\mathbf{e}_x=(1,0)`$ and $`\mathbf{e}_y=(0,1)`$ are unit vectors, with $`y`$ pointing upward; $`g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y`$ is the Boussinesq buoyancy acceleration. $`\nabla`$ and $`\nabla^2`$ denote the gradient and Laplacian operators; incompressibility requires $`\nabla\cdot\mathbf{u}=0`$.
+Here $`\mathbf{u}=(u,v)`$ is velocity, $`t`$ time, $`P`$ pressure relative to the reference hydrostatic state, $`T`$ temperature, $`\rho`$ reference density, $`\nu`$ kinematic viscosity, and $`\alpha`$ thermal diffusivity. $`a_x`$ is an imposed horizontal acceleration (in Poiseuille, $`a_x=-(1/\rho)\,dP_{\mathrm{imposed}}/dx`$), $`g`$ the positive gravitational acceleration magnitude, $`\beta`$ the thermal expansion coefficient, and $`T_{\mathrm{ref}}`$ the reference temperature. $`\mathbf{e}_x=(1,0)`$ and $`\mathbf{e}_y=(0,1)`$ are unit vectors, with $`y`$ pointing upward; $`g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y`$ is the Boussinesq buoyancy acceleration. $`\nabla`$ and $`\nabla^2`$ denote the gradient and Laplacian operators; incompressibility requires $`\nabla\cdot\mathbf{u}=0`$.
 
-We use a uniform staggered grid: $p,T$ at cell centres, $u$ on vertical
-faces and $v$ on horizontal faces. Advection uses first-order upwind
+We use a uniform staggered grid: $`P,T`$ at cell centres, $`u`$ on vertical
+faces and $`v`$ on horizontal faces. Advection uses first-order upwind
 differences; diffusion uses second-order central differences.
 Time integration is first-order explicit, with a sequential thermal/fluid update.
 
@@ -61,7 +61,7 @@ Each call to [Solver::step](src/solver.cpp) follows this order, skipping disable
 
 The pressure equation uses Gauss–Seidel, optionally with relaxation.
 Pressure is determined up to a constant; one cell sets its reference.
-Wall conditions use ghost cells; some channel cases use periodic boundaries in $x$.
+Wall conditions use ghost cells; some channel cases use periodic boundaries in $`x`$.
 
 The terminal shows Courant numbers, viscous/thermal Fourier numbers,
 the combined explicit stability estimate and an estimated maximum time step.
@@ -71,7 +71,7 @@ These diagnostics use conservative velocity bounds including ghost cells.
 ## Transient heat conduction in water
 
 Initially, the water is uniformly at 20°C. At t = 0 the left wall is set to
-40°C; the right wall stays at 20°C. The top and bottom are insulated.
+40°C; the right wall stays at 20°C. The top and bottom are insulated ($`\partial T/\partial y=0`$).
 The 2 mm × 1 mm rectangle has no fluid motion or buoyancy: this isolates
 thermal diffusion and gives a one-dimensional analytical solution.
 
@@ -90,8 +90,6 @@ transient, and dashed grey the steady linear profile.
 Water thermal diffusivity: 1.43e-7 m²/s. Mesh: 48 × 12, dt = 0.001 s.
 [Transient test](tests/heated_wall_test.cpp): 0.1, 0.5, 1, 2, 5 and 12 s.
 The maximum error must stay below 0.5% of the imposed 20 K temperature difference.
-The original sinusoidal-decay and convergence tests remain in
-[heat_equation_test.cpp](tests/heat_equation_test.cpp).
 
 For the interior at t > 0, with initial temperature equal to the cold wall:
 
@@ -107,7 +105,7 @@ $$
 ## Poiseuille
 
 The fluid starts at rest. A constant pressure gradient accelerates it, while viscosity
-slows it down near the stationary walls. The velocity profile gradually approaches
+slows it down near the fixed walls. The velocity profile gradually approaches
 the steady parabola.
 
 ![Transient Poiseuille flow: numerical and analytical velocity profiles](docs/media/poiseuille.gif)
@@ -125,8 +123,24 @@ ctest --test-dir build --output-on-failure
 ```
 
 Start from rest. Evolve for 30 s. Save every 0.1 s. Playback: 25 fps (2.5x physical speed).
-Periodic left/right; stationary walls at bottom/top.
-Constant acceleration: `a = -(dp/dx)/rho`. Output `p`: periodic pressure component.
+Periodic left/right (flow leaving one side re-enters through the other, representing a repeating channel segment). $`\mathbf{u}(0,y,t)=\mathbf{u}(L,y,t)`$, where $`L`$ is the channel length. Fixed walls at bottom/top (no slip or penetration). $`\mathbf{u}(x,0,t)=\mathbf{u}(x,H,t)=\mathbf{0}`$, where $`H`$ is the channel height.
+A constant imposed pressure gradient drives the flow. We represent it as a
+uniform horizontal acceleration:
+
+$$
+a_x=-\frac{1}{\rho}\frac{dP_{\mathrm{imposed}}}{dx}.
+$$
+
+The total pressure is split into this imposed linear drop and a periodic part:
+
+$$
+P_{\mathrm{total}}(x,y,t)=-\rho a_x x+P(x,y,t),
+\qquad P(0,y,t)=P(L,y,t).
+$$
+
+The solver applies $`a_x`$ explicitly in the momentum equation and saves only
+the periodic pressure $`P`$. The imposed linear drop is therefore absent from
+the output pressure field (CSV column `p`).
 
 [Poiseuille tests](tests/poiseuille_test.cpp): 0.1, 0.5, 2, 5, 8, 15, 30 s.
 The final-profile test requires a maximum error below 0.2% of the steady
@@ -142,8 +156,8 @@ These checks validate viscous diffusion, the channel boundaries, and the transie
 profile. General two-dimensional nonlinear advection needs a separate benchmark.
 
 $$
-u(y,t)=\frac{a}{2\nu}y(H-y)
--\frac{4aH^2}{\nu\pi^3}
+u(y,t)=\frac{a_x}{2\nu}y(H-y)
+-\frac{4a_xH^2}{\nu\pi^3}
 \sum_{n=1,3,5,\ldots}
 \frac{\sin(n\pi y/H)}{n^3}
 \exp\left(-\frac{\nu n^2\pi^2t}{H^2}\right)
@@ -154,7 +168,7 @@ $$
 ## Couette
 
 The fluid starts at rest. The top wall suddenly moves at 0.05 m/s while the
-bottom wall stays fixed. Viscosity transfers momentum into the channel until
+bottom wall stays fixed ($`\mathbf{u}(x,0,t)=\mathbf{0}`$). Viscosity transfers momentum into the channel until
 the velocity profile approaches a straight line.
 
 ![Transient Couette flow: numerical and analytical velocity profiles](docs/media/couette.gif)
@@ -169,7 +183,7 @@ profile, orange the transient analytical solution, and dashed grey the steady li
 .venv/bin/python visualize.py results_couette --save results_couette/couette.gif
 ```
 
-Periodic left/right; fixed bottom wall; moving top wall. No imposed pressure gradient.
+Periodic left/right (flow leaving one side re-enters through the other, representing a repeating channel segment). $`\mathbf{u}(0,y,t)=\mathbf{u}(L,y,t)`$, where $`L`$ is the channel length. Fixed bottom wall; moving top wall. No imposed pressure gradient.
 Start from rest. Evolve for 30 s. Save every 0.1 s.
 
 [Couette tests](tests/couette_test.cpp): 0.1, 0.5, 2, 5, 8, 15, 30 s.
@@ -196,7 +210,7 @@ $$
 ## Stokes: oscillating wall in water
 
 Water starts at rest. The bottom wall oscillates horizontally:
-u_wall(t) = U sin(omega t), with U = 0.01 m/s and period 2 s.
+$`u_{\mathrm{wall}}(t)=U\sin(\omega t)`$, with $`U=0.01\,\mathrm{m/s}`$ and period 2 s.
 The top wall stays fixed and left/right boundaries are periodic.
 Temperature and buoyancy are disabled.
 
@@ -217,14 +231,14 @@ and dashed grey is the long-time periodic solution.
 Water: density 998.2 kg/m³, kinematic viscosity 1.004e-6 m²/s.
 Domain: 16 mm × 4 mm; mesh 24 × 64; dt = 0.0005 s.
 This is the finite-channel version of Stokes' second problem; the analytical
-comparison includes the stationary upper wall and the initial transient.
+comparison includes the fixed upper wall and the initial transient.
 
 [Stokes tests](tests/stokes_test.cpp) check startup, reversal, incompressibility
 and wall velocity at 0.1, 0.5, 1, 1.5, 2, 3.5, 5, 7.5 and 8 s.
 Maximum startup error: below 0.5% of wall amplitude.
 At 8 s the profile must also be within 0.3% of the periodic solution.
 
-With k_n = n pi/H and lambda_n = nu k_n²:
+With $`k_n=n\pi/H`$ and $`\lambda_n=\nu k_n^2`$:
 
 $$
 u(y,t)=U\left(1-\frac{y}{H}\right)\sin(\omega t)
@@ -246,7 +260,7 @@ Edit its dimensions, mesh, time step, duration and four walls to try another set
 
 A 1 cm square cavity starts at rest. The top wall moves to the right at
 0.01004 m/s; the other three walls stay fixed. Water properties:
-density 998.2 kg/m³, kinematic viscosity 1.004e-6 m²/s. Reynolds number: 100.
+density 998.2 kg/m³, kinematic viscosity 1.004e-6 m²/s. Reynolds number: $`\mathrm{Re}=UH/\nu=100`$, where $`U`$ is the lid speed and $`H`$ the cavity height.
 Temperature and buoyancy are disabled.
 
 ![Water lid-driven cavity: transient velocity and circulation](docs/media/lid_cavity.gif)
@@ -269,8 +283,8 @@ This is a simulation example; no cavity benchmark validation is claimed.
 ### Buoyancy: air heated from below
 
 A 4 cm × 2 cm rectangle starts at rest near 20°C. The bottom wall is held
-at 40°C and the top wall at 20°C; the side walls are insulated. All four
-walls are stationary and impermeable. Temperature and velocity evolve together
+at 40°C and the top wall at 20°C; the side walls are insulated ($`\partial T/\partial x=0`$, no heat crosses them). All four
+walls are fixed and impermeable ($`\mathbf{u}=\mathbf{0}`$ at the walls: no slip or flow through them). Temperature and velocity evolve together
 with the Boussinesq buoyancy force.
 
 ![Air heated from below: temperature, rising plumes and moving particles](docs/media/buoyancy.gif)
@@ -306,7 +320,7 @@ a single liquid, without a free surface, air bubble or surface tension.
 
 4 s of physical time shown in a 15 s animation. Colour shows temperature in °C.
 Dark particles mark water that was initially hot; white particles show the
-surrounding circulation. All four walls are stationary, impermeable and insulated.
+surrounding circulation. All four walls are fixed and impermeable ($`\mathbf{u}=\mathbf{0}`$: no slip or flow through them), and insulated ($`\partial T/\partial n=0`$: no heat crosses them), where $`n`$ is the direction normal to each wall.
 
 ```sh
 cmake --build build -j
