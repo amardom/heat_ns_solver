@@ -90,6 +90,19 @@ u_c=\frac{u_{i-1,j}+u_{i,j}}{2},
 v_c=\frac{v_{i,j-1}+v_{i,j}}{2}.
 $$
 
+For momentum advection, we also need $`v`$ at a $`u`$ face and $`u`$ at a
+$`v`$ face. We average the four surrounding values:
+
+$$
+v_{\text{at }u(i,j)}=
+\frac{v_{i,j-1}+v_{i+1,j-1}+v_{i,j}+v_{i+1,j}}{4},
+$$
+
+$$
+u_{\text{at }v(i,j)}=
+\frac{u_{i-1,j}+u_{i,j}+u_{i-1,j+1}+u_{i,j+1}}{4}.
+$$
+
 Advection uses first-order upwind
 differences; diffusion uses second-order central differences.
 Time integration is first-order explicit, with a sequential thermal/fluid update.
