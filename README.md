@@ -103,6 +103,61 @@ u_{\text{at }v(i,j)}=
 \frac{u_{i-1,j}+u_{i,j}+u_{i-1,j+1}+u_{i,j+1}}{4}.
 $$
 
+### Boundary conditions and ghost cells
+
+Boundary conditions prescribe velocity or heat transfer at the walls.
+Ghost values outside the domain are calculated from the interior values to
+enforce these conditions. At the bottom wall, $`u`$ is tangential and $`v`$ is normal:
+
+```text
+                    y
+               e_y  ^
+                    |
+ dy/2, j=1       u(0,1)     T(1,1)     u(1,1)     T(2,1)     u(2,1)   fluid
+                    |                       |                       |
+ wall, y=0          O--------v(1,0)---------+--------v(2,0)---------+ --> x, e_x
+                    :                       :                       :
+-dy/2, j=0       u(0,0)     T(1,0)     u(1,0)     T(2,0)     u(2,0)   ghosts
+```
+
+The origin $`O=(0,0)`$ lies on the wall. The normal velocity is stored directly
+there: impermeability gives $`v_{i,0}=0`$. The ghost values $`u_{i,0},T_{i,0}`$
+are half a cell below the wall; their interior neighbours $`u_{i,1},T_{i,1}`$
+are half a cell above it.
+
+For a wall moving tangentially at speed $`U_{\mathrm{wall}}`$, no slip requires
+the average at the wall to equal that speed:
+
+$$
+\frac{u_{i,0}+u_{i,1}}{2}=U_{\mathrm{wall}}
+\quad\Longrightarrow\quad
+u_{i,0}=2U_{\mathrm{wall}}-u_{i,1}.
+$$
+
+A fixed wall has $`U_{\mathrm{wall}}=0`$, so $`u_{i,0}=-u_{i,1}`$.
+
+For an imposed wall temperature $`T_{\mathrm{wall}}`$, the same averaging gives:
+
+$$
+\frac{T_{i,0}+T_{i,1}}{2}=T_{\mathrm{wall}}
+\quad\Longrightarrow\quad
+T_{i,0}=2T_{\mathrm{wall}}-T_{i,1}.
+$$
+
+For an insulated wall, the normal temperature gradient is zero:
+
+$$
+\left.\frac{\partial T}{\partial y}\right|_{y=0}
+\approx\frac{T_{i,1}-T_{i,0}}{\Delta y}=0
+\quad\Longrightarrow\quad
+T_{i,0}=T_{i,1}.
+$$
+
+The other walls use the same construction, with the corresponding normal
+and tangential velocity components.
+
+### Discretization and time stepping
+
 Advection uses first-order upwind
 differences; diffusion uses second-order central differences.
 Time integration is first-order explicit, with a sequential thermal/fluid update.
@@ -118,7 +173,7 @@ Each call to [Solver::step](src/solver.cpp) follows this order, skipping disable
 
 The pressure equation uses Gauss–Seidel, optionally with relaxation.
 Pressure is determined up to a constant; one cell sets its reference.
-Wall conditions use ghost cells; some channel cases use periodic boundaries in $`x`$.
+Some channel cases use periodic boundaries in $`x`$.
 
 The terminal shows Courant numbers, viscous/thermal Fourier numbers,
 the combined explicit stability estimate and an estimated maximum time step.
