@@ -53,7 +53,44 @@ $$
 Here $`\mathbf{u}=(u,v)`$ is velocity, $`t`$ time, $`P`$ pressure relative to the reference hydrostatic state, $`T`$ temperature, $`\rho`$ reference density, $`\nu`$ kinematic viscosity, and $`\alpha`$ thermal diffusivity. $`a_x`$ is an imposed horizontal acceleration (in Poiseuille, $`a_x=-(1/\rho)\,dP_{\mathrm{imposed}}/dx`$), $`g`$ the positive gravitational acceleration magnitude, $`\beta`$ the thermal expansion coefficient, and $`T_{\mathrm{ref}}`$ the reference temperature. $`\mathbf{e}_x=(1,0)`$ and $`\mathbf{e}_y=(0,1)`$ are unit vectors, with $`y`$ pointing upward; $`g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y`$ is the Boussinesq buoyancy acceleration. $`\nabla`$ and $`\nabla^2`$ denote the gradient and Laplacian operators.
 
 We use a uniform staggered grid: $`P,T`$ at cell centres, $`u`$ on vertical
-faces and $`v`$ on horizontal faces. Advection uses first-order upwind
+faces and $`v`$ on horizontal faces. A 3 × 2 example (ghost cells omitted):
+
+```text
+            y, j
+       e_y  ^
+            |
+ 2dy        +--------v(1,2)---------+--------v(2,2)---------+--------v(3,2)---------+
+            |                       |                       |                       |
+ j=2     u(0,2)     P,T(1,2)     u(1,2)     P,T(2,2)     u(2,2)     P,T(3,2)     u(3,2)
+            |                       |                       |                       |
+ dy         +--------v(1,1)---------+--------v(2,1)---------+--------v(3,1)---------+
+            |                       |                       |                       |
+ j=1     u(0,1)     P,T(1,1)     u(1,1)     P,T(2,1)     u(2,1)     P,T(3,1)     u(3,1)
+            |                       |                       |                       |
+ (0,0)      O--------v(1,0)---------+--------v(2,0)---------+--------v(3,0)---------+ --> x, i
+            0                      dx                     2dx                     3dx     e_x
+```
+
+The physical origin is the bottom-left corner; $`\mathbf{e}_x=(1,0)`$ points
+right and $`\mathbf{e}_y=(0,1)`$ points upward. Indices $`i,j`$ increase in
+those directions. The first cell centre, $`P,T(1,1)`$, is at
+$`(\Delta x/2,\Delta y/2)`$; $`u(0,1)`$ and $`v(1,0)`$ lie on its left and bottom faces.
+
+The code uses `pressure(i,j)` and `temperature(i,j)` for $`P,T`$.
+`field(i,j)` accesses `field.values[j * field.nx + i]`: $`i`$ varies fastest,
+and `field.nx` is the stored row width, including any ghost columns.
+Row $`j=1`$ is near the bottom of the domain, even if a printed matrix lists it first.
+
+When a velocity is needed where it is not stored, we interpolate by averaging.
+For example, at the cell centre:
+
+$$
+u_c=\frac{u_{i-1,j}+u_{i,j}}{2},
+\qquad
+v_c=\frac{v_{i,j-1}+v_{i,j}}{2}.
+$$
+
+Advection uses first-order upwind
 differences; diffusion uses second-order central differences.
 Time integration is first-order explicit, with a sequential thermal/fluid update.
 
