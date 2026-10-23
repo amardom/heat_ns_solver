@@ -140,49 +140,49 @@ Solver::Solver(const Config &parameters)
             }
         }
     }
-    apply_velocity_boundaries(time);
+    apply_velocity_boundaries(u, v, time);
     apply_temperature_boundaries();
     if (config.left.flow_type == FlowBoundaryType::inlet) {
         Field initial_u = u;
         Field initial_v = v;
         solve_pressure(initial_u, initial_v);
         correct_velocity(initial_u, initial_v);
-        apply_velocity_boundaries(time);
+        apply_velocity_boundaries(u, v, time);
         std::fill(pressure.values.begin(), pressure.values.end(), 0.0);
     }
 }
 
-void Solver::apply_velocity_boundaries(double boundary_time) {
+void Solver::apply_velocity_boundaries(Field &boundary_u, Field &boundary_v, double boundary_time) {
     const Config &parameters = config;
     double inlet_angle = parameters.left.angle_inlet(boundary_time);
     for (int y = 1; y <= parameters.ny; ++y) {
         if (parameters.left.flow_type == FlowBoundaryType::wall) {
-            u(0, y) = 0;
+            boundary_u(0, y) = 0;
         }
         if (parameters.left.flow_type == FlowBoundaryType::inlet) {
             double height = (y - 0.5) * dy;
-            u(0, y) = parameters.left.velocity_inlet(height) * std::cos(inlet_angle);
+            boundary_u(0, y) = parameters.left.velocity_inlet(height) * std::cos(inlet_angle);
         }
         if (parameters.right.flow_type == FlowBoundaryType::wall) {
-            u(parameters.nx, y) = 0;
+            boundary_u(parameters.nx, y) = 0;
         }
     }
     for (int x = 0; x <= parameters.nx; ++x) {
-        u(x, 0) = 2 * parameters.bottom.velocity_wall(boundary_time) - u(x, 1);
-        u(x, parameters.ny + 1) = 2 * parameters.top.velocity_wall(boundary_time) - u(x, parameters.ny);
+        boundary_u(x, 0) = 2 * parameters.bottom.velocity_wall(boundary_time) - boundary_u(x, 1);
+        boundary_u(x, parameters.ny + 1) = 2 * parameters.top.velocity_wall(boundary_time) - boundary_u(x, parameters.ny);
     }
     for (int x = 1; x <= parameters.nx; ++x) {
-        v(x, 0) = 0;
-        v(x, parameters.ny) = 0;
+        boundary_v(x, 0) = 0;
+        boundary_v(x, parameters.ny) = 0;
     }
     for (int y = 0; y <= parameters.ny; ++y) {
-        v(0, y) = 2 * parameters.left.velocity_wall(boundary_time) - v(1, y);
+        boundary_v(0, y) = 2 * parameters.left.velocity_wall(boundary_time) - boundary_v(1, y);
         if (parameters.left.flow_type == FlowBoundaryType::inlet) {
             double height = y * dy;
             double inlet_v = parameters.left.velocity_inlet(height) * std::sin(inlet_angle);
-            v(0, y) = 2 * inlet_v - v(1, y);
+            boundary_v(0, y) = 2 * inlet_v - boundary_v(1, y);
         }
-        v(parameters.nx + 1, y) = 2 * parameters.right.velocity_wall(boundary_time) - v(parameters.nx, y);
+        boundary_v(parameters.nx + 1, y) = 2 * parameters.right.velocity_wall(boundary_time) - boundary_v(parameters.nx, y);
     }
 }
 
@@ -301,11 +301,6 @@ void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
         }
     }
     for (int y = 1; y <= parameters.ny; ++y) {
-        if (parameters.left.flow_type == FlowBoundaryType::inlet) {
-            double height = (y - 0.5) * dy;
-            double inlet_angle = parameters.left.angle_inlet(time + parameters.dt);
-            predicted_u(0, y) = parameters.left.velocity_inlet(height) * std::cos(inlet_angle);
-        }
         if (parameters.left.flow_type == FlowBoundaryType::pressure) {
             double d2u_dx2 = 2 * (u(1, y) - u(0, y)) / (dx * dx);
             double d2u_dy2 = (u(0, y + 1) - 2 * u(0, y) + u(0, y - 1)) / (dy * dy);
@@ -514,11 +509,12 @@ void Solver::step() {
         Field predicted_u = u;
         Field predicted_v = v;
         predict_velocity(predicted_u, predicted_v);
+        apply_velocity_boundaries(predicted_u, predicted_v, time + config.dt);
         solve_pressure(predicted_u, predicted_v);
         correct_velocity(predicted_u, predicted_v);
     }
     time += config.dt;
-    apply_velocity_boundaries(time);
+    apply_velocity_boundaries(u, v, time);
 }
 
 double Solver::maximum_divergence() const {
