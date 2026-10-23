@@ -35,14 +35,13 @@ TEST(Fluid, MovingLidPreservesIncompressibilityOnRectangle) {
     EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance * 1.01);
 }
 
-TEST(Fluid, PeriodicProjectionRemovesNonuniformDivergence) {
+TEST(Fluid, ClosedProjectionRemovesNonuniformDivergence) {
     Config config;
     config.length = 0.12;
     config.height = 0.02;
     config.dt = 0.001;
     config.viscosity = 1e-5;
     config.thermal = false;
-    config.periodic_x = true;
     config.nx = 16;
     config.ny = 12;
     Solver solver(config);
@@ -58,6 +57,7 @@ TEST(Fluid, PeriodicProjectionRemovesNonuniformDivergence) {
     solver.step();
     EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance * 1.01);
     for (int y = 1; y <= config.ny; ++y) {
-        EXPECT_DOUBLE_EQ(solver.u(0, y), solver.u(config.nx, y));
+        EXPECT_DOUBLE_EQ(solver.u(0, y), 0.0);
+        EXPECT_DOUBLE_EQ(solver.u(config.nx, y), 0.0);
     }
 }

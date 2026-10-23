@@ -396,7 +396,7 @@ Four cycles: 8 s of physical time shown in a 20 s animation.
 The fluid is nearly black at rest. Warm tones show rightward velocity;
 blue and cyan show leftward velocity. The moving particles reverse
 direction; the cyan profile is numerical, orange is the analytical startup,
-and dashed grey is the long-time oscillatory solution.
+and dashed grey is the time-periodic solution.
 
 ```sh
 ./build/simulate stokes results_stokes
@@ -412,7 +412,7 @@ comparison includes the fixed upper wall and the initial transient.
 [Stokes tests](tests/stokes_test.cpp) check startup, reversal, incompressibility
 and wall velocity at 0.1, 0.5, 1, 1.5, 2, 3.5, 5, 7.5 and 8 s.
 Maximum startup error: below 0.5% of wall amplitude.
-At 8 s the profile must also be within 0.3% of the long-time oscillatory solution, which repeats every 2 s.
+At 8 s the profile must also be within 0.3% of the time-periodic solution, which repeats every 2 s.
 
 With $`k_n=n\pi/H`$ and $`\lambda_n=\nu k_n^2`$:
 

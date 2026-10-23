@@ -57,11 +57,6 @@ Config validate_config(const Config &parameters) {
         parameters.bottom.flow_type != FlowBoundaryType::wall) {
         throw std::invalid_argument("Pressure boundaries are supported on left and right only");
     }
-    if (parameters.periodic_x &&
-        (parameters.left.flow_type == FlowBoundaryType::pressure ||
-         parameters.right.flow_type == FlowBoundaryType::pressure)) {
-        throw std::invalid_argument("Periodic sides cannot impose pressure");
-    }
     return parameters;
 }
 
@@ -108,15 +103,11 @@ Solver::Solver(const Config &parameters)
 void Solver::apply_velocity_boundaries() {
     const Config &parameters = config;
     for (int y = 1; y <= parameters.ny; ++y) {
-        if (parameters.periodic_x) {
-            u(parameters.nx, y) = u(0, y);
-        } else {
-            if (parameters.left.flow_type == FlowBoundaryType::wall) {
-                u(0, y) = 0;
-            }
-            if (parameters.right.flow_type == FlowBoundaryType::wall) {
-                u(parameters.nx, y) = 0;
-            }
+        if (parameters.left.flow_type == FlowBoundaryType::wall) {
+            u(0, y) = 0;
+        }
+        if (parameters.right.flow_type == FlowBoundaryType::wall) {
+            u(parameters.nx, y) = 0;
         }
     }
     for (int x = 0; x <= parameters.nx; ++x) {
@@ -128,13 +119,8 @@ void Solver::apply_velocity_boundaries() {
         v(x, parameters.ny) = 0;
     }
     for (int y = 0; y <= parameters.ny; ++y) {
-        if (parameters.periodic_x) {
-            v(0, y) = v(parameters.nx, y);
-            v(parameters.nx + 1, y) = v(1, y);
-        } else {
-            v(0, y) = 2 * parameters.left.velocity(time) - v(1, y);
-            v(parameters.nx + 1, y) = 2 * parameters.right.velocity(time) - v(parameters.nx, y);
-        }
+        v(0, y) = 2 * parameters.left.velocity(time) - v(1, y);
+        v(parameters.nx + 1, y) = 2 * parameters.right.velocity(time) - v(parameters.nx, y);
     }
 }
 
@@ -148,14 +134,9 @@ double ghost_temperature(double inside, const Boundary &wall) {
 void Solver::apply_temperature_boundaries() {
     const Config &parameters = config;
     for (int y = 1; y <= parameters.ny; ++y) {
-        if (parameters.periodic_x) {
-            temperature(0, y) = temperature(parameters.nx, y);
-            temperature(parameters.nx + 1, y) = temperature(1, y);
-        } else {
-            temperature(0, y) = ghost_temperature(temperature(1, y), parameters.left);
-            temperature(parameters.nx + 1, y) =
-                ghost_temperature(temperature(parameters.nx, y), parameters.right);
-        }
+        temperature(0, y) = ghost_temperature(temperature(1, y), parameters.left);
+        temperature(parameters.nx + 1, y) =
+            ghost_temperature(temperature(parameters.nx, y), parameters.right);
     }
     for (int x = 1; x <= parameters.nx; ++x) {
         temperature(x, 0) = ghost_temperature(temperature(x, 1), parameters.bottom);
@@ -215,30 +196,16 @@ void Solver::advance_fluid() {
 
 void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
     const Config &parameters = config;
-    int first_u_face = 1;
-    if (parameters.periodic_x) {
-        first_u_face = 0;
-    }
     for (int y = 1; y <= parameters.ny; ++y) {
-        for (int x = first_u_face; x < parameters.nx; ++x) {
-            int left_x = x - 1;
-            int right_x = x + 1;
-            if (parameters.periodic_x) {
-                if (left_x < 0) {
-                    left_x = parameters.nx - 1;
-                }
-                if (right_x >= parameters.nx) {
-                    right_x = 0;
-                }
-            }
+        for (int x = 1; x < parameters.nx; ++x) {
             double vertical_velocity =
                 0.25 * (v(x, y - 1) + v(x + 1, y - 1) + v(x, y) + v(x + 1, y));
             double horizontal_velocity = u(x, y);
             double du_dx;
             if (horizontal_velocity >= 0) {
-                du_dx = (horizontal_velocity - u(left_x, y)) / dx;
+                du_dx = (horizontal_velocity - u(x - 1, y)) / dx;
             } else {
-                du_dx = (u(right_x, y) - horizontal_velocity) / dx;
+                du_dx = (u(x + 1, y) - horizontal_velocity) / dx;
             }
             double du_dy;
             if (vertical_velocity >= 0) {
@@ -246,7 +213,7 @@ void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
             } else {
                 du_dy = (u(x, y + 1) - horizontal_velocity) / dy;
             }
-            double d2u_dx2 = (u(right_x, y) - 2 * horizontal_velocity + u(left_x, y)) / (dx * dx);
+            double d2u_dx2 = (u(x + 1, y) - 2 * horizontal_velocity + u(x - 1, y)) / (dx * dx);
             double d2u_dy2 = (u(x, y + 1) - 2 * horizontal_velocity + u(x, y - 1)) / (dy * dy);
             double laplacian = d2u_dx2 + d2u_dy2;
             predicted_u(x, y) +=
@@ -298,11 +265,6 @@ void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
             predicted_u(x, y) = u(x, y) + parameters.dt * parameters.viscosity * (d2u_dx2 + d2u_dy2);
         }
     }
-    if (parameters.periodic_x) {
-        for (int y = 1; y <= parameters.ny; ++y) {
-            predicted_u(parameters.nx, y) = predicted_u(0, y);
-        }
-    }
 }
 
 void Solver::solve_pressure(const Field &predicted_u, const Field &predicted_v) {
@@ -322,24 +284,14 @@ void Solver::solve_pressure(const Field &predicted_u, const Field &predicted_v) 
     for (int iteration = 0; iteration < parameters.pressure_iterations; ++iteration) {
         for (int y = 1; y <= parameters.ny; ++y) {
             for (int x = 1; x <= parameters.nx; ++x) {
-                int left_x = x - 1;
-                int right_x = x + 1;
-                if (parameters.periodic_x) {
-                    if (x == 1) {
-                        left_x = parameters.nx;
-                    }
-                    if (x == parameters.nx) {
-                        right_x = 1;
-                    }
-                }
                 double sum = 0;
                 double diagonal = 0;
-                if (x > 1 || parameters.periodic_x) {
-                    sum += inverse_dx_squared * pressure(left_x, y);
+                if (x > 1) {
+                    sum += inverse_dx_squared * pressure(x - 1, y);
                     diagonal += inverse_dx_squared;
                 }
-                if (x < parameters.nx || parameters.periodic_x) {
-                    sum += inverse_dx_squared * pressure(right_x, y);
+                if (x < parameters.nx) {
+                    sum += inverse_dx_squared * pressure(x + 1, y);
                     diagonal += inverse_dx_squared;
                 }
                 if (x == 1 && parameters.left.flow_type == FlowBoundaryType::pressure) {
@@ -374,22 +326,12 @@ void Solver::solve_pressure(const Field &predicted_u, const Field &predicted_v) 
         double residual = 0;
         for (int y = 1; y <= parameters.ny; ++y) {
             for (int x = 1; x <= parameters.nx; ++x) {
-                int left_x = x - 1;
-                int right_x = x + 1;
-                if (parameters.periodic_x) {
-                    if (x == 1) {
-                        left_x = parameters.nx;
-                    }
-                    if (x == parameters.nx) {
-                        right_x = 1;
-                    }
-                }
                 double laplacian = 0;
-                if (x > 1 || parameters.periodic_x) {
-                    laplacian += inverse_dx_squared * (pressure(left_x, y) - pressure(x, y));
+                if (x > 1) {
+                    laplacian += inverse_dx_squared * (pressure(x - 1, y) - pressure(x, y));
                 }
-                if (x < parameters.nx || parameters.periodic_x) {
-                    laplacian += inverse_dx_squared * (pressure(right_x, y) - pressure(x, y));
+                if (x < parameters.nx) {
+                    laplacian += inverse_dx_squared * (pressure(x + 1, y) - pressure(x, y));
                 }
                 if (x == 1 && parameters.left.flow_type == FlowBoundaryType::pressure) {
                     laplacian += 2 * inverse_dx_squared * (parameters.left.pressure - pressure(x, y));
@@ -444,12 +386,6 @@ void Solver::correct_velocity(const Field &predicted_u, const Field &predicted_v
             u(parameters.nx, y) = predicted_u(parameters.nx, y) -
                 parameters.dt / parameters.density *
                 (parameters.right.pressure - pressure(parameters.nx, y)) / (0.5 * dx);
-        }
-    }
-    if (parameters.periodic_x) {
-        for (int y = 1; y <= parameters.ny; ++y) {
-            u(0, y) = predicted_u(0, y) - parameters.dt / parameters.density *
-                                              (pressure(1, y) - pressure(parameters.nx, y)) / dx;
         }
     }
 }

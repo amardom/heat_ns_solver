@@ -39,7 +39,6 @@ struct Config {
     bool fluid = true;
     bool thermal = true;
     bool buoyancy = false;
-    bool periodic_x = false;
     double density = 1.204;
     double viscosity = 1.516e-5;
     double diffusivity = 2.14e-5;

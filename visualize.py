@@ -174,7 +174,7 @@ if show_velocity_profile:
         )
     reference_label = "Steady"
     if show_stokes:
-        reference_label = "Periodic"
+        reference_label = "Time-periodic"
     (reference_line,) = profile_axes.plot(
         steady, profile_heights, "--", color="#7a8b98", label=reference_label
     )

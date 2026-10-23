@@ -72,7 +72,6 @@ inline Config lid_cavity() {
     config.fluid = true;
     config.thermal = false;
     config.buoyancy = false;
-    config.periodic_x = false;
     config.density = 998.2;
     config.viscosity = 1.004e-6;
     config.top.tangential_velocity = 0.01004;
