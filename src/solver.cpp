@@ -145,8 +145,7 @@ void Solver::apply_temperature_boundaries() {
     }
 }
 
-void Solver::advance_temperature() {
-    apply_temperature_boundaries();
+void Solver::update_temperature() {
     Field next_temperature = temperature;
     for (int y = 1; y <= config.ny; ++y) {
         for (int x = 1; x <= config.nx; ++x) {
@@ -179,19 +178,6 @@ void Solver::advance_temperature() {
         }
     }
     temperature = next_temperature;
-    apply_temperature_boundaries();
-}
-
-void Solver::advance_fluid() {
-    apply_velocity_boundaries();
-
-    Field predicted_u = u;
-    Field predicted_v = v;
-    predict_velocity(predicted_u, predicted_v);
-    solve_pressure(predicted_u, predicted_v);
-    correct_velocity(predicted_u, predicted_v);
-
-    apply_velocity_boundaries();
 }
 
 void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
@@ -443,11 +429,23 @@ void Solver::step() {
     if (limits.combined > 1.0) {
         throw std::runtime_error("Explicit stability limit exceeded: CFL + 2*Fo > 1. Reduce dt.");
     }
+    // Advance temperature.
     if (config.thermal) {
-        advance_temperature();
+        apply_temperature_boundaries();
+        update_temperature();
+        apply_temperature_boundaries();
     }
+    // Advance fluid.
     if (config.fluid) {
-        advance_fluid();
+        apply_velocity_boundaries();
+
+        Field predicted_u = u;
+        Field predicted_v = v;
+        predict_velocity(predicted_u, predicted_v);
+        solve_pressure(predicted_u, predicted_v);
+        correct_velocity(predicted_u, predicted_v);
+
+        apply_velocity_boundaries();
     }
     time += config.dt;
     apply_velocity_boundaries();

@@ -85,8 +85,7 @@ struct Solver {
     explicit Solver(const Config &config);
     void apply_velocity_boundaries();
     void apply_temperature_boundaries();
-    void advance_temperature();
-    void advance_fluid();
+    void update_temperature();
     void predict_velocity(Field &predicted_u, Field &predicted_v);
     void solve_pressure(const Field &predicted_u, const Field &predicted_v);
     void correct_velocity(const Field &predicted_u, const Field &predicted_v);
