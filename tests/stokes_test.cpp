@@ -54,6 +54,18 @@ TEST(Stokes, WaterMatchesAnalyticalStartupAndReversal) {
         for (double velocity : solver.v.values) {
             EXPECT_NEAR(velocity, 0.0, 1e-12);
         }
+        double left_flow = 0.0;
+        double right_flow = 0.0;
+        for (int y = 1; y <= config.ny; ++y) {
+            EXPECT_NEAR(solver.u(0, y), solver.u(1, y), 1e-12);
+            EXPECT_NEAR(solver.u(config.nx, y), solver.u(config.nx - 1, y), 1e-12);
+            left_flow += solver.u(0, y) * solver.dy;
+            right_flow += solver.u(config.nx, y) * solver.dy;
+            for (int x = 1; x <= config.nx; ++x) {
+                EXPECT_NEAR(solver.pressure(x, y), 0.0, 1e-10);
+            }
+        }
+        EXPECT_NEAR(left_flow, right_flow, 1e-12);
         if (time == 0.5) {
             EXPECT_GT(solver.u(0, 1), 0.0);
         }
@@ -63,7 +75,7 @@ TEST(Stokes, WaterMatchesAnalyticalStartupAndReversal) {
     }
 }
 
-TEST(Stokes, ApproachesPeriodicFiniteChannelSolution) {
+TEST(Stokes, ApproachesTimePeriodicFiniteChannelSolution) {
     Config config = stokes();
     config.nx = 8;
     Solver solver(config);

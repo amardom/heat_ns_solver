@@ -173,7 +173,7 @@ Each call to [Solver::step](src/solver.cpp) follows this order, skipping disable
 
 The pressure equation uses Gauss–Seidel, optionally with relaxation.
 Prescribed pressure boundaries set its reference; otherwise one cell fixes the arbitrary constant.
-Some channel cases use periodic boundaries in $`x`$.
+Channel cases use open ends with prescribed pressure.
 
 The terminal shows Courant numbers, viscous/thermal Fourier numbers,
 the combined explicit stability estimate and an estimated maximum time step.
@@ -375,8 +375,20 @@ $$
 
 Water starts at rest. The bottom wall oscillates horizontally:
 $`u_{\mathrm{wall}}(t)=U\sin(\omega t)`$, with $`U=0.01\,\mathrm{m/s}`$ and period 2 s.
-The top wall stays fixed and left/right boundaries are periodic.
+The top wall stays fixed. The left and right ends are open, with equal pressure.
 Temperature and buoyancy are disabled.
+
+$$
+P(0,y,t)=P(L,y,t)=0,\qquad
+\frac{\partial u}{\partial x}=0,\qquad v=0
+\quad\text{at }x=0,L.
+$$
+
+The horizontal velocity is calculated at both ends; the zero derivative is
+spatial, so the velocity can still vary in time. Equal end pressures produce
+no driving pressure gradient. The bottom wall drives the flow through viscosity,
+and fluid can enter or leave either end as the wall reverses.
+Here $`L`$ is the channel length.
 
 ![Oscillating wall in water: signed velocity, particles and analytical profiles](docs/media/stokes.gif)
 
@@ -384,7 +396,7 @@ Four cycles: 8 s of physical time shown in a 20 s animation.
 The fluid is nearly black at rest. Warm tones show rightward velocity;
 blue and cyan show leftward velocity. The moving particles reverse
 direction; the cyan profile is numerical, orange is the analytical startup,
-and dashed grey is the long-time periodic solution.
+and dashed grey is the long-time oscillatory solution.
 
 ```sh
 ./build/simulate stokes results_stokes
@@ -400,7 +412,7 @@ comparison includes the fixed upper wall and the initial transient.
 [Stokes tests](tests/stokes_test.cpp) check startup, reversal, incompressibility
 and wall velocity at 0.1, 0.5, 1, 1.5, 2, 3.5, 5, 7.5 and 8 s.
 Maximum startup error: below 0.5% of wall amplitude.
-At 8 s the profile must also be within 0.3% of the periodic solution.
+At 8 s the profile must also be within 0.3% of the long-time oscillatory solution, which repeats every 2 s.
 
 With $`k_n=n\pi/H`$ and $`\lambda_n=\nu k_n^2`$:
 
