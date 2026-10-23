@@ -153,8 +153,8 @@ if show_velocity_profile:
     viscosity = metadata["viscosity"]
     profile_heights = np.linspace(0, height, 250)
     if show_stokes:
-        amplitude = metadata["oscillation_amplitude"]
-        omega = 2 * np.pi / metadata["oscillation_period"]
+        amplitude = metadata["oscillation_amplitude_stokes"]
+        omega = 2 * np.pi / metadata["oscillation_period_stokes"]
         stokes_wave = np.sqrt(1j * omega / viscosity)
         stokes_shape = np.sinh(stokes_wave * (height - profile_heights)) / np.sinh(
             stokes_wave * height

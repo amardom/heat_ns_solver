@@ -77,8 +77,8 @@ void save_metadata(const Config &config, const std::string &case_name,
              << "  \"initial_temperature\": " << config.initial_temperature << ",\n"
              << "  \"left_temperature\": " << config.left.temperature << ",\n"
              << "  \"right_temperature\": " << config.right.temperature << ",\n"
-             << "  \"oscillation_amplitude\": " << config.bottom.oscillation_amplitude << ",\n"
-             << "  \"oscillation_period\": " << config.bottom.oscillation_period << "\n"
+             << "  \"oscillation_amplitude_stokes\": " << config.bottom.oscillation_amplitude_stokes << ",\n"
+             << "  \"oscillation_period_stokes\": " << config.bottom.oscillation_period_stokes << "\n"
              << "}\n";
     metadata.close();
     if (!metadata) {

@@ -144,8 +144,8 @@ inline Config stokes() {
     config.left.pressure = 0.0;
     config.right.flow_type = FlowBoundaryType::pressure;
     config.right.pressure = 0.0;
-    config.bottom.oscillation_amplitude = 0.01;
-    config.bottom.oscillation_period = 2.0;
+    config.bottom.oscillation_amplitude_stokes = 0.01;
+    config.bottom.oscillation_period_stokes = 2.0;
     return config;
 }
 

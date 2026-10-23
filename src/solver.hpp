@@ -20,12 +20,12 @@ struct Boundary {
     double tangential_velocity = 0.0;
     ThermalBoundaryType thermal_type = ThermalBoundaryType::insulated;
     double temperature = 293.15;
-    double oscillation_amplitude = 0.0;
-    double oscillation_period = 0.0;
+    double oscillation_amplitude_stokes = 0.0;
+    double oscillation_period_stokes = 0.0;
     FlowBoundaryType flow_type = FlowBoundaryType::wall;
     double pressure = 0.0;
 
-    double velocity(double time) const;
+    double velocity_wall(double time) const;
 };
 
 struct Config {

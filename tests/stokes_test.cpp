@@ -10,8 +10,8 @@ double analytical_stokes(double y, double time, const Config &config) {
         return 0.0;
     }
     double pi = std::acos(-1.0);
-    double amplitude = config.bottom.oscillation_amplitude;
-    double omega = 2 * pi / config.bottom.oscillation_period;
+    double amplitude = config.bottom.oscillation_amplitude_stokes;
+    double omega = 2 * pi / config.bottom.oscillation_period_stokes;
     double velocity = amplitude * (1 - y / config.height) * std::sin(omega * time);
     for (int n = 1; n <= 301; ++n) {
         double wave_number = n * pi / config.height;
@@ -48,8 +48,8 @@ TEST(Stokes, WaterMatchesAnalyticalStartupAndReversal) {
                 maximum_error = std::max(maximum_error, std::abs(solver.u(x, y) - exact));
             }
         }
-        EXPECT_LT(maximum_error / config.bottom.oscillation_amplitude, 0.005);
-        EXPECT_NEAR(0.5 * (solver.u(0, 0) + solver.u(0, 1)), config.bottom.velocity(time), 1e-11);
+        EXPECT_LT(maximum_error / config.bottom.oscillation_amplitude_stokes, 0.005);
+        EXPECT_NEAR(0.5 * (solver.u(0, 0) + solver.u(0, 1)), config.bottom.velocity_wall(time), 1e-11);
         EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance);
         for (double velocity : solver.v.values) {
             EXPECT_NEAR(velocity, 0.0, 1e-12);
@@ -83,16 +83,16 @@ TEST(Stokes, ApproachesTimePeriodicFiniteChannelSolution) {
         solver.step();
     }
 
-    double omega = 2 * std::acos(-1.0) / config.bottom.oscillation_period;
+    double omega = 2 * std::acos(-1.0) / config.bottom.oscillation_period_stokes;
     std::complex<double> wave_number = std::sqrt(std::complex<double>(0, omega / config.viscosity));
     std::complex<double> phase = std::exp(std::complex<double>(0, omega * solver.time));
     double maximum_error = 0;
     for (int y = 1; y <= config.ny; ++y) {
         double position = (y - 0.5) * solver.dy;
-        double exact = std::imag(config.bottom.oscillation_amplitude * phase *
+        double exact = std::imag(config.bottom.oscillation_amplitude_stokes * phase *
                                  std::sinh(wave_number * (config.height - position)) /
                                  std::sinh(wave_number * config.height));
         maximum_error = std::max(maximum_error, std::abs(solver.u(0, y) - exact));
     }
-    EXPECT_LT(maximum_error / config.bottom.oscillation_amplitude, 0.003);
+    EXPECT_LT(maximum_error / config.bottom.oscillation_amplitude_stokes, 0.003);
 }

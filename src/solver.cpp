@@ -15,13 +15,13 @@ double Field::operator()(int x, int y) const {
     return values[y * nx + x];
 }
 
-double Boundary::velocity(double time) const {
-    if (oscillation_period <= 0.0) {
+double Boundary::velocity_wall(double time) const {
+    if (oscillation_period_stokes <= 0.0) {
         return tangential_velocity;
     }
     double pi = std::acos(-1.0);
     return tangential_velocity +
-           oscillation_amplitude * std::sin(2 * pi * time / oscillation_period);
+           oscillation_amplitude_stokes * std::sin(2 * pi * time / oscillation_period_stokes);
 }
 
 Config validate_config(const Config &parameters) {
@@ -39,7 +39,7 @@ Config validate_config(const Config &parameters) {
     for (const Boundary &boundary :
          {parameters.left, parameters.right, parameters.bottom, parameters.top}) {
         for (double value : {boundary.pressure, boundary.tangential_velocity, boundary.temperature,
-                             boundary.oscillation_amplitude, boundary.oscillation_period}) {
+                             boundary.oscillation_amplitude_stokes, boundary.oscillation_period_stokes}) {
             if (!std::isfinite(value)) {
                 throw std::invalid_argument("Boundary parameters must be finite");
             }
@@ -111,16 +111,16 @@ void Solver::apply_velocity_boundaries(double boundary_time) {
         }
     }
     for (int x = 0; x <= parameters.nx; ++x) {
-        u(x, 0) = 2 * parameters.bottom.velocity(boundary_time) - u(x, 1);
-        u(x, parameters.ny + 1) = 2 * parameters.top.velocity(boundary_time) - u(x, parameters.ny);
+        u(x, 0) = 2 * parameters.bottom.velocity_wall(boundary_time) - u(x, 1);
+        u(x, parameters.ny + 1) = 2 * parameters.top.velocity_wall(boundary_time) - u(x, parameters.ny);
     }
     for (int x = 1; x <= parameters.nx; ++x) {
         v(x, 0) = 0;
         v(x, parameters.ny) = 0;
     }
     for (int y = 0; y <= parameters.ny; ++y) {
-        v(0, y) = 2 * parameters.left.velocity(boundary_time) - v(1, y);
-        v(parameters.nx + 1, y) = 2 * parameters.right.velocity(boundary_time) - v(parameters.nx, y);
+        v(0, y) = 2 * parameters.left.velocity_wall(boundary_time) - v(1, y);
+        v(parameters.nx + 1, y) = 2 * parameters.right.velocity_wall(boundary_time) - v(parameters.nx, y);
     }
 }
 
