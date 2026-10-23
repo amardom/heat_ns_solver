@@ -96,11 +96,11 @@ Solver::Solver(const Config &parameters)
             }
         }
     }
-    apply_velocity_boundaries();
+    apply_velocity_boundaries(time);
     apply_temperature_boundaries();
 }
 
-void Solver::apply_velocity_boundaries() {
+void Solver::apply_velocity_boundaries(double boundary_time) {
     const Config &parameters = config;
     for (int y = 1; y <= parameters.ny; ++y) {
         if (parameters.left.flow_type == FlowBoundaryType::wall) {
@@ -111,16 +111,16 @@ void Solver::apply_velocity_boundaries() {
         }
     }
     for (int x = 0; x <= parameters.nx; ++x) {
-        u(x, 0) = 2 * parameters.bottom.velocity(time) - u(x, 1);
-        u(x, parameters.ny + 1) = 2 * parameters.top.velocity(time) - u(x, parameters.ny);
+        u(x, 0) = 2 * parameters.bottom.velocity(boundary_time) - u(x, 1);
+        u(x, parameters.ny + 1) = 2 * parameters.top.velocity(boundary_time) - u(x, parameters.ny);
     }
     for (int x = 1; x <= parameters.nx; ++x) {
         v(x, 0) = 0;
         v(x, parameters.ny) = 0;
     }
     for (int y = 0; y <= parameters.ny; ++y) {
-        v(0, y) = 2 * parameters.left.velocity(time) - v(1, y);
-        v(parameters.nx + 1, y) = 2 * parameters.right.velocity(time) - v(parameters.nx, y);
+        v(0, y) = 2 * parameters.left.velocity(boundary_time) - v(1, y);
+        v(parameters.nx + 1, y) = 2 * parameters.right.velocity(boundary_time) - v(parameters.nx, y);
     }
 }
 
@@ -431,24 +431,19 @@ void Solver::step() {
     }
     // Advance temperature.
     if (config.thermal) {
-        apply_temperature_boundaries();
         update_temperature();
         apply_temperature_boundaries();
     }
     // Advance fluid.
     if (config.fluid) {
-        apply_velocity_boundaries();
-
         Field predicted_u = u;
         Field predicted_v = v;
         predict_velocity(predicted_u, predicted_v);
         solve_pressure(predicted_u, predicted_v);
         correct_velocity(predicted_u, predicted_v);
-
-        apply_velocity_boundaries();
     }
     time += config.dt;
-    apply_velocity_boundaries();
+    apply_velocity_boundaries(time);
 }
 
 double Solver::maximum_divergence() const {

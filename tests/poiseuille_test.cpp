@@ -87,7 +87,7 @@ TEST(Poiseuille, PressureBoundariesRemoveNonuniformDivergence) {
                 0.001 * std::sin(2 * pi * x / config.nx) * std::sin(pi * (y - 0.5) / config.ny);
         }
     }
-    solver.apply_velocity_boundaries();
+    solver.apply_velocity_boundaries(solver.time);
     EXPECT_GT(solver.maximum_divergence(), 1e-3);
     solver.step();
     EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance * 1.01);

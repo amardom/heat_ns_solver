@@ -83,7 +83,7 @@ struct Solver {
     Field temperature;
 
     explicit Solver(const Config &config);
-    void apply_velocity_boundaries();
+    void apply_velocity_boundaries(double boundary_time);
     void apply_temperature_boundaries();
     void update_temperature();
     void predict_velocity(Field &predicted_u, Field &predicted_v);

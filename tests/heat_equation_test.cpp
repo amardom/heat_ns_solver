@@ -27,6 +27,7 @@ double sine_decay_error(int nx, int ny) {
                                        std::sin(pi * (y - 0.5) * solver.dy / config.height);
         }
     }
+    solver.apply_temperature_boundaries();
     for (int step = 0; step < config.steps; ++step) {
         solver.step();
     }
@@ -71,6 +72,7 @@ TEST(HeatEquation, PreservesSteadyLinearConduction) {
             solver.temperature(x, y) = 303.15 - 10.0 * (x - 0.5) / config.nx;
         }
     }
+    solver.apply_temperature_boundaries();
     for (int step = 0; step < 100; ++step) {
         solver.step();
     }
