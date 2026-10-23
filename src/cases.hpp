@@ -31,10 +31,12 @@ inline Config poiseuille() {
     config.steps = 30000;
     config.save_every = 100;
     config.thermal = false;
-    config.periodic_x = true;
     config.density = 1000.0;
     config.viscosity = 1e-5;
-    config.acceleration_x = 0.01;
+    config.left.flow_type = FlowBoundaryType::pressure;
+    config.left.pressure = 1.2;
+    config.right.flow_type = FlowBoundaryType::pressure;
+    config.right.pressure = 0.0;
     return config;
 }
 

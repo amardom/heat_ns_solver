@@ -83,3 +83,25 @@ TEST(Couette, ApproachesSteadyLinearProfileAfterThirtySeconds) {
     EXPECT_LT(maximum_error / config.top.tangential_velocity, 0.002);
     EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance);
 }
+
+TEST(Couette, PeriodicProjectionRemovesNonuniformDivergence) {
+    Config config = couette();
+    config.nx = 16;
+    config.ny = 12;
+    config.top.tangential_velocity = 0.0;
+    Solver solver(config);
+    double pi = std::acos(-1.0);
+    for (int y = 1; y <= config.ny; ++y) {
+        for (int x = 0; x < config.nx; ++x) {
+            solver.u(x, y) =
+                0.001 * std::sin(2 * pi * x / config.nx) * std::sin(pi * (y - 0.5) / config.ny);
+        }
+    }
+    solver.apply_velocity_boundaries();
+    EXPECT_GT(solver.maximum_divergence(), 1e-3);
+    solver.step();
+    EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance * 1.01);
+    for (int y = 1; y <= config.ny; ++y) {
+        EXPECT_DOUBLE_EQ(solver.u(0, y), solver.u(config.nx, y));
+    }
+}

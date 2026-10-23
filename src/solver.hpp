@@ -12,6 +12,8 @@ struct Field {
     double operator()(int x, int y) const;
 };
 
+enum class FlowBoundaryType { wall, pressure };
+
 enum class ThermalBoundaryType { temperature, insulated };
 
 struct Boundary {
@@ -20,6 +22,8 @@ struct Boundary {
     double temperature = 293.15;
     double oscillation_amplitude = 0.0;
     double oscillation_period = 0.0;
+    FlowBoundaryType flow_type = FlowBoundaryType::wall;
+    double pressure = 0.0;
 
     double velocity(double time) const;
 };
@@ -36,7 +40,6 @@ struct Config {
     bool thermal = true;
     bool buoyancy = false;
     bool periodic_x = false;
-    double acceleration_x = 0.0;
     double density = 1.204;
     double viscosity = 1.516e-5;
     double diffusivity = 2.14e-5;

@@ -40,7 +40,7 @@ $$
 \frac{\partial \mathbf{u}}{\partial t}
 +(\mathbf{u}\cdot\nabla)\mathbf{u}
 =-\frac{1}{\rho}\nabla P+\nu\nabla^2\mathbf{u}
-+a_x\mathbf{e}_x+g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y
++g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y
 $$
 
 **Heat**
@@ -50,7 +50,7 @@ $$
 =\alpha\nabla^2T
 $$
 
-Here $`\mathbf{u}=(u,v)`$ is velocity, $`t`$ time, $`P`$ pressure relative to the reference hydrostatic state, $`T`$ temperature, $`\rho`$ reference density, $`\nu`$ kinematic viscosity, and $`\alpha`$ thermal diffusivity. $`a_x`$ is an imposed horizontal acceleration (in Poiseuille, $`a_x=-(1/\rho)\,dP_{\mathrm{imposed}}/dx`$), $`g`$ the positive gravitational acceleration magnitude, $`\beta`$ the thermal expansion coefficient, and $`T_{\mathrm{ref}}`$ the reference temperature. $`\mathbf{e}_x=(1,0)`$ and $`\mathbf{e}_y=(0,1)`$ are unit vectors, with $`y`$ pointing upward; $`g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y`$ is the Boussinesq buoyancy acceleration. $`\nabla`$ and $`\nabla^2`$ denote the gradient and Laplacian operators.
+Here $`\mathbf{u}=(u,v)`$ is velocity, $`t`$ time, $`P`$ pressure relative to the reference hydrostatic state, $`T`$ temperature, $`\rho`$ reference density, $`\nu`$ kinematic viscosity, and $`\alpha`$ thermal diffusivity. $`g`$ is the positive gravitational acceleration magnitude, $`\beta`$ the thermal expansion coefficient, and $`T_{\mathrm{ref}}`$ the reference temperature. $`\mathbf{e}_x=(1,0)`$ and $`\mathbf{e}_y=(0,1)`$ are unit vectors, with $`y`$ pointing upward; $`g\beta(T-T_{\mathrm{ref}})\mathbf{e}_y`$ is the Boussinesq buoyancy acceleration. $`\nabla`$ and $`\nabla^2`$ denote the gradient and Laplacian operators.
 
 We use a uniform staggered grid: $`P,T`$ at cell centres, $`u`$ on vertical
 faces and $`v`$ on horizontal faces. A 3 × 2 example (ghost cells omitted):
@@ -172,7 +172,7 @@ Each call to [Solver::step](src/solver.cpp) follows this order, skipping disable
    to enforce incompressibility. Reapply the wall conditions at the new time.
 
 The pressure equation uses Gauss–Seidel, optionally with relaxation.
-Pressure is determined up to a constant; one cell sets its reference.
+Prescribed pressure boundaries set its reference; otherwise one cell fixes the arbitrary constant.
 Some channel cases use periodic boundaries in $`x`$.
 
 The terminal shows Courant numbers, viscous/thermal Fourier numbers,
@@ -235,24 +235,51 @@ ctest --test-dir build --output-on-failure
 ```
 
 Start from rest. Evolve for 30 s. Save every 0.1 s. Playback: 25 fps (2.5x physical speed).
-Periodic left/right (flow leaving one side re-enters through the other, representing a repeating channel segment). $`\mathbf{u}(0,y,t)=\mathbf{u}(L,y,t)`$, where $`L`$ is the channel length. Fixed walls at bottom/top (no slip or penetration). $`\mathbf{u}(x,0,t)=\mathbf{u}(x,H,t)=\mathbf{0}`$, where $`H`$ is the channel height.
-A constant imposed pressure gradient drives the flow. We represent it as a
-uniform horizontal acceleration:
+The channel length is $`L=0.12\,\mathrm{m}`$, its height $`H=0.02\,\mathrm{m}`$,
+and the density $`\rho=1000\,\mathrm{kg/m^3}`$.
+
+We impose pressure directly at the left and right ends:
 
 $$
-a_x=-\frac{1}{\rho}\frac{dP_{\mathrm{imposed}}}{dx}.
+P(0,y,t)=P_{\mathrm{in}}=1.2\,\mathrm{Pa},
+\qquad
+P(L,y,t)=P_{\mathrm{out}}=0\,\mathrm{Pa}.
 $$
 
-The total pressure is split into this imposed linear drop and a periodic part:
+The pressure difference $`\Delta P=P_{\mathrm{in}}-P_{\mathrm{out}}`$ drives
+the fluid from left to right. These are open boundaries: fluid crosses them,
+and its velocity is calculated rather than prescribed. For this developed
+channel flow, both ends use:
 
 $$
-P_{\mathrm{total}}(x,y,t)=-\rho a_x x+P(x,y,t),
-\qquad P(0,y,t)=P(L,y,t).
+\frac{\partial u}{\partial x}=0,\qquad v=0
+\quad\text{at }x=0,L.
 $$
 
-The solver applies $`a_x`$ explicitly in the momentum equation and saves only
-the periodic pressure $`P`$. The imposed linear drop is therefore absent from
-the output pressure field (CSV column `p`).
+The zero derivative extends the horizontal velocity profile through each end;
+it does not set $`u`$ to zero. Fixed bottom and top walls impose no slip and
+no penetration:
+
+$$
+\mathbf{u}(x,0,t)=\mathbf{u}(x,H,t)=\mathbf{0}.
+$$
+
+The pressure solve uses $`P_{\mathrm{in}}`$ and $`P_{\mathrm{out}}`$ as known
+boundary values. The first and last cell centres are $`\Delta x/2`$ from these
+boundaries. We use that same distance when correcting the velocities on the
+inlet and outlet faces, so the adjacent cells also satisfy incompressibility.
+
+For this case, the computed pressure is linear along the channel:
+
+$$
+P(x,y,t)=P_{\mathrm{in}}-\frac{\Delta P}{L}x,
+\qquad
+-\frac{1}{\rho}\frac{\partial P}{\partial x}=\frac{\Delta P}{\rho L}.
+$$
+
+The pressure gradient supplies the acceleration directly; no horizontal body
+force is added. The output column `p` contains $`P`$ itself, in pascals relative
+to the chosen outlet pressure.
 
 [Poiseuille tests](tests/poiseuille_test.cpp): 0.1, 0.5, 2, 5, 8, 15, 30 s.
 The final-profile test requires a maximum error below 0.2% of the steady
@@ -268,8 +295,8 @@ These checks validate viscous diffusion, the channel boundaries, and the transie
 profile. General two-dimensional nonlinear advection needs a separate benchmark.
 
 $$
-u(y,t)=\frac{a_x}{2\nu}y(H-y)
--\frac{4a_xH^2}{\nu\pi^3}
+u(y,t)=\frac{\Delta P}{2\rho\nu L}y(H-y)
+-\frac{4\Delta P H^2}{\rho\nu L\pi^3}
 \sum_{n=1,3,5,\ldots}
 \frac{\sin(n\pi y/H)}{n^3}
 \exp\left(-\frac{\nu n^2\pi^2t}{H^2}\right)

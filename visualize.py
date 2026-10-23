@@ -150,7 +150,6 @@ if case_name == "thermal_bubble":
 title = figure.suptitle("", fontsize=16, fontweight="bold")
 
 if show_velocity_profile:
-    acceleration = metadata["acceleration_x"]
     viscosity = metadata["viscosity"]
     profile_heights = np.linspace(0, height, 250)
     if show_stokes:
@@ -165,6 +164,8 @@ if show_velocity_profile:
         wall_velocity = metadata["top_velocity"]
         steady = wall_velocity * profile_heights / height
     else:
+        pressure_drop = metadata["left_pressure"] - metadata["right_pressure"]
+        acceleration = pressure_drop / (metadata["density"] * length)
         steady = (
             acceleration
             * profile_heights
