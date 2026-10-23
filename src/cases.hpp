@@ -174,3 +174,31 @@ inline Config thermal_bubble() {
     config.bubble_temperature_excess = 15.0;
     return config;
 }
+
+inline Config oscillating_jet() {
+    Config config;
+    config.nx = 192;
+    config.ny = 96;
+    config.length = 0.06;
+    config.height = 0.03;
+    config.dt = 0.0025;
+    config.steps = 20000;
+    config.save_every = 40;
+    config.fluid = true;
+    config.thermal = false;
+    config.buoyancy = false;
+    config.density = 998.2;
+    config.viscosity = 1.004e-6;
+    config.pressure_relaxation = 1.989;
+    config.pressure_iterations = 30000;
+    config.divergence_tolerance = 1e-6;
+    config.left.flow_type = FlowBoundaryType::inlet;
+    config.left.inlet_center = 0.0195;
+    config.left.inlet_half_width = 0.00225;
+    config.left.inlet_velocity = 200.0 * config.viscosity / (2 * config.left.inlet_half_width);
+    config.left.inlet_angle_amplitude_degrees = 20.0;
+    config.left.inlet_oscillation_period = 4.0;
+    config.right.flow_type = FlowBoundaryType::pressure;
+    config.right.pressure = 0.0;
+    return config;
+}

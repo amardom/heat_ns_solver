@@ -8,6 +8,9 @@
 #include <string>
 
 Config select_case(const std::string &name) {
+    if (name == "oscillating_jet") {
+        return oscillating_jet();
+    }
     if (name == "air") {
         return air_cavity();
     }
@@ -70,6 +73,11 @@ void save_metadata(const Config &config, const std::string &case_name,
              << "  \"height\": " << config.height << ",\n"
              << "  \"viscosity\": " << config.viscosity << ",\n"
              << "  \"density\": " << config.density << ",\n"
+             << "  \"inlet_velocity\": " << config.left.inlet_velocity << ",\n"
+             << "  \"inlet_center\": " << config.left.inlet_center << ",\n"
+             << "  \"inlet_half_width\": " << config.left.inlet_half_width << ",\n"
+             << "  \"inlet_angle_amplitude_degrees\": " << config.left.inlet_angle_amplitude_degrees << ",\n"
+             << "  \"inlet_oscillation_period\": " << config.left.inlet_oscillation_period << ",\n"
              << "  \"left_pressure\": " << config.left.pressure << ",\n"
              << "  \"right_pressure\": " << config.right.pressure << ",\n"
              << "  \"top_velocity\": " << config.top.tangential_velocity << ",\n"
@@ -99,6 +107,14 @@ void print_simulation_checks(const Solver &solver, const std::string &case_name)
     std::cout << "Fo_nu = nu*dt*(1/dx^2 + 1/dy^2); Fo_alpha = alpha*dt*(1/dx^2 + 1/dy^2)\n";
     std::cout << "S_fluid = CFL + 2*Fo_nu; S_heat = CFL + 2*Fo_alpha.\n";
     std::cout << "Explicit check each step: S <= 1 for each active equation.\n";
+    if (solver.config.left.flow_type == FlowBoundaryType::inlet) {
+        double width = 2 * solver.config.left.inlet_half_width;
+        double reynolds = solver.config.left.inlet_velocity * width / solver.config.viscosity;
+        std::cout << "Inlet peak=" << solver.config.left.inlet_velocity
+                  << " m/s  width=" << width << " m  Re_peak=" << reynolds << '\n';
+        std::cout << "Inlet angle amplitude=" << solver.config.left.inlet_angle_amplitude_degrees
+                  << " deg  period=" << solver.config.left.inlet_oscillation_period << " s\n";
+    }
     std::cout << "Stored velocity bounds include ghost cells for a conservative estimate.\n";
     std::cout << "dt_max is estimated from the current fields and recomputed each step.\n";
     std::cout << "Disabled equations report zero; dt_max=inf means no transport restriction.\n";

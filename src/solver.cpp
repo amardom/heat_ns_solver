@@ -24,6 +24,26 @@ double Boundary::velocity_wall(double time) const {
            oscillation_amplitude_stokes * std::sin(2 * pi * time / oscillation_period_stokes);
 }
 
+double Boundary::velocity_inlet(double height) const {
+    if (inlet_half_width == 0.0) {
+        return inlet_velocity;
+    }
+    double position = (height - inlet_center) / inlet_half_width;
+    if (std::abs(position) >= 1.0) {
+        return 0.0;
+    }
+    return inlet_velocity * (1.0 - position * position);
+}
+
+double Boundary::angle_inlet(double time) const {
+    if (inlet_oscillation_period == 0.0) {
+        return 0.0;
+    }
+    double pi = std::acos(-1.0);
+    double amplitude = inlet_angle_amplitude_degrees * pi / 180.0;
+    return amplitude * std::sin(2 * pi * time / inlet_oscillation_period);
+}
+
 Config validate_config(const Config &parameters) {
     for (double value :
          {parameters.length, parameters.height, parameters.dt, parameters.density,
@@ -39,6 +59,8 @@ Config validate_config(const Config &parameters) {
     for (const Boundary &boundary :
          {parameters.left, parameters.right, parameters.bottom, parameters.top}) {
         for (double value : {boundary.pressure, boundary.tangential_velocity, boundary.temperature,
+                             boundary.inlet_velocity, boundary.inlet_center, boundary.inlet_half_width,
+                             boundary.inlet_angle_amplitude_degrees, boundary.inlet_oscillation_period,
                              boundary.oscillation_amplitude_stokes, boundary.oscillation_period_stokes}) {
             if (!std::isfinite(value)) {
                 throw std::invalid_argument("Boundary parameters must be finite");
@@ -56,6 +78,28 @@ Config validate_config(const Config &parameters) {
     if (parameters.top.flow_type != FlowBoundaryType::wall ||
         parameters.bottom.flow_type != FlowBoundaryType::wall) {
         throw std::invalid_argument("Pressure boundaries are supported on left and right only");
+    }
+    if (parameters.right.flow_type == FlowBoundaryType::inlet ||
+        (parameters.left.flow_type == FlowBoundaryType::inlet &&
+         parameters.right.flow_type != FlowBoundaryType::pressure)) {
+        throw std::invalid_argument("Velocity inlet requires left inlet and right pressure outlet");
+    }
+    if (parameters.left.flow_type == FlowBoundaryType::inlet) {
+        if (!parameters.fluid || parameters.thermal) {
+            throw std::invalid_argument("Velocity inlet currently supports fluid-only simulations");
+        }
+        const Boundary &inlet = parameters.left;
+        if (inlet.inlet_angle_amplitude_degrees < 0.0 || inlet.inlet_angle_amplitude_degrees >= 90.0 ||
+            inlet.inlet_oscillation_period < 0.0 ||
+            (inlet.inlet_angle_amplitude_degrees > 0.0 && inlet.inlet_oscillation_period == 0.0)) {
+            throw std::invalid_argument("Inlet oscillation requires amplitude below 90 degrees and positive period");
+        }
+        if (inlet.inlet_half_width < 0.0 ||
+            (inlet.inlet_half_width > 0.0 &&
+             (inlet.inlet_center - inlet.inlet_half_width < 0.0 ||
+              inlet.inlet_center + inlet.inlet_half_width > parameters.height))) {
+            throw std::invalid_argument("Inlet profile must fit inside the channel height");
+        }
     }
     return parameters;
 }
@@ -98,13 +142,26 @@ Solver::Solver(const Config &parameters)
     }
     apply_velocity_boundaries(time);
     apply_temperature_boundaries();
+    if (config.left.flow_type == FlowBoundaryType::inlet) {
+        Field initial_u = u;
+        Field initial_v = v;
+        solve_pressure(initial_u, initial_v);
+        correct_velocity(initial_u, initial_v);
+        apply_velocity_boundaries(time);
+        std::fill(pressure.values.begin(), pressure.values.end(), 0.0);
+    }
 }
 
 void Solver::apply_velocity_boundaries(double boundary_time) {
     const Config &parameters = config;
+    double inlet_angle = parameters.left.angle_inlet(boundary_time);
     for (int y = 1; y <= parameters.ny; ++y) {
         if (parameters.left.flow_type == FlowBoundaryType::wall) {
             u(0, y) = 0;
+        }
+        if (parameters.left.flow_type == FlowBoundaryType::inlet) {
+            double height = (y - 0.5) * dy;
+            u(0, y) = parameters.left.velocity_inlet(height) * std::cos(inlet_angle);
         }
         if (parameters.right.flow_type == FlowBoundaryType::wall) {
             u(parameters.nx, y) = 0;
@@ -120,6 +177,11 @@ void Solver::apply_velocity_boundaries(double boundary_time) {
     }
     for (int y = 0; y <= parameters.ny; ++y) {
         v(0, y) = 2 * parameters.left.velocity_wall(boundary_time) - v(1, y);
+        if (parameters.left.flow_type == FlowBoundaryType::inlet) {
+            double height = y * dy;
+            double inlet_v = parameters.left.velocity_inlet(height) * std::sin(inlet_angle);
+            v(0, y) = 2 * inlet_v - v(1, y);
+        }
         v(parameters.nx + 1, y) = 2 * parameters.right.velocity_wall(boundary_time) - v(parameters.nx, y);
     }
 }
@@ -239,6 +301,11 @@ void Solver::predict_velocity(Field &predicted_u, Field &predicted_v) {
         }
     }
     for (int y = 1; y <= parameters.ny; ++y) {
+        if (parameters.left.flow_type == FlowBoundaryType::inlet) {
+            double height = (y - 0.5) * dy;
+            double inlet_angle = parameters.left.angle_inlet(time + parameters.dt);
+            predicted_u(0, y) = parameters.left.velocity_inlet(height) * std::cos(inlet_angle);
+        }
         if (parameters.left.flow_type == FlowBoundaryType::pressure) {
             double d2u_dx2 = 2 * (u(1, y) - u(0, y)) / (dx * dx);
             double d2u_dy2 = (u(0, y + 1) - 2 * u(0, y) + u(0, y - 1)) / (dy * dy);
@@ -309,6 +376,11 @@ void Solver::solve_pressure(const Field &predicted_u, const Field &predicted_v) 
                 }
             }
         }
+        bool check_residual = iteration == 0 || (iteration + 1) % 10 == 0;
+        bool last_iteration = iteration + 1 == parameters.pressure_iterations;
+        if (!check_residual && !last_iteration) {
+            continue;
+        }
         double residual = 0;
         for (int y = 1; y <= parameters.ny; ++y) {
             for (int x = 1; x <= parameters.nx; ++x) {
@@ -364,6 +436,9 @@ void Solver::correct_velocity(const Field &predicted_u, const Field &predicted_v
         }
     }
     for (int y = 1; y <= parameters.ny; ++y) {
+        if (parameters.left.flow_type == FlowBoundaryType::inlet) {
+            u(0, y) = predicted_u(0, y);
+        }
         if (parameters.left.flow_type == FlowBoundaryType::pressure) {
             u(0, y) = predicted_u(0, y) - parameters.dt / parameters.density *
                       (pressure(1, y) - parameters.left.pressure) / (0.5 * dx);

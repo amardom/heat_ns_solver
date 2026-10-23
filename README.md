@@ -512,3 +512,44 @@ thermal diffusivity 1.43e-7 m²/s and expansion coefficient 2.07e-4 K⁻¹.
 Mesh: 48 × 72; dt = 0.002 s; 2000 steps; snapshots every 0.04 s.
 Pressure uses relaxation 1.7 to reduce iteration cost.
 This is a qualitative convection example.
+
+### Oscillating inlet jet: water in a channel
+
+![Oscillating water jet: velocity and passive tracers over the first 45 seconds](docs/media/oscillating_jet.gif)
+
+A parabolic jet enters a 60 mm × 30 mm channel through a 4.5 mm opening centred
+at $`y_c=19.5\,\mathrm{mm}`$. Its peak speed is $`U=0.04462\,\mathrm{m/s}`$:
+
+$$
+U(y)=\begin{cases}
+U\left[1-\left(\frac{y-y_c}{b}\right)^2\right], & |y-y_c|<b,\\
+0, & |y-y_c|\ge b,
+\end{cases}
+\qquad b=2.25\,\mathrm{mm}.
+$$
+
+The direction is $`\theta(t)=20^\circ\sin(2\pi t/\tau)`$, with $`\tau=4\,\mathrm{s}`$.
+The inlet components are $`u(0,y,t)=U(y)\cos\theta(t)`$ and $`v(0,y,t)=U(y)\sin\theta(t)`$.
+The top, bottom and the inlet outside the opening are fixed and impermeable.
+The outlet has prescribed $`P=0`$; its horizontal velocity is calculated by the
+momentum predictor and pressure correction. The initial velocity is projected
+to satisfy incompressibility and the imposed inlet flux.
+The inlet normal velocity for the new time is included before the pressure solve,
+so each projected velocity field satisfies the changing volume flux.
+Temperature and buoyancy are disabled. No additional perturbation is imposed.
+
+Water: $`\nu=1.004\times10^{-6}\,\mathrm{m^2/s}`$;
+$`\mathrm{Re}=U(2b)/\nu=200`$, based on peak inlet speed and opening width.
+Mesh: 192 × 96 cells, $`\Delta t=0.0025\,\mathrm{s}`$, 50 s physical duration.
+This is a qualitative laminar example.
+
+```sh
+cmake --build build -j
+./build/simulate oscillating_jet results_oscillating_jet_20deg_re200_50s
+.venv/bin/python visualize.py results_oscillating_jet_20deg_re200_50s --field speed --save results_oscillating_jet_20deg_re200_50s/oscillating_jet_particles.mp4
+```
+
+The video uses a fixed colour scale, velocity arrows and passive tracers;
+The README GIF shows the first 45 s at real-time speed.
+The full video shows 50 s of physical evolution in 50 s. Use `--field vorticity` for the vorticity field.
+Velocity inlets currently support fluid-only cases with a pressure outlet on the right.

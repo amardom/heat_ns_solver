@@ -24,6 +24,7 @@ if(BUILD_TESTING)
     endif()
     add_executable(solver_tests
         tests/heat_equation_test.cpp
+        tests/inlet_test.cpp
         tests/fluid_test.cpp
         tests/poiseuille_test.cpp
         tests/couette_test.cpp

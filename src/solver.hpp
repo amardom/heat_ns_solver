@@ -12,7 +12,7 @@ struct Field {
     double operator()(int x, int y) const;
 };
 
-enum class FlowBoundaryType { wall, pressure };
+enum class FlowBoundaryType { wall, pressure, inlet };
 
 enum class ThermalBoundaryType { temperature, insulated };
 
@@ -24,8 +24,15 @@ struct Boundary {
     double oscillation_period_stokes = 0.0;
     FlowBoundaryType flow_type = FlowBoundaryType::wall;
     double pressure = 0.0;
+    double inlet_velocity = 0.0;
+    double inlet_center = 0.0;
+    double inlet_half_width = 0.0;
+    double inlet_angle_amplitude_degrees = 0.0;
+    double inlet_oscillation_period = 0.0;
 
     double velocity_wall(double time) const;
+    double velocity_inlet(double height) const;
+    double angle_inlet(double time) const;
 };
 
 struct Config {

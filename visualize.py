@@ -11,7 +11,7 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", nargs="?", default="results", type=Path)
-parser.add_argument("--field", choices=["T", "p", "speed", "u"])
+parser.add_argument("--field", choices=["T", "p", "speed", "u", "vorticity"])
 parser.add_argument("--save", type=Path)
 parser.add_argument("--fps", type=int, default=25)
 args = parser.parse_args()
@@ -52,6 +52,10 @@ plotted_fields = []
 for data in snapshots:
     if args.field == "speed":
         values = np.hypot(data["u"], data["v"])
+    elif args.field == "vorticity":
+        velocity_u = data["u"].reshape(len(y_coordinates), len(x_coordinates))
+        velocity_v = data["v"].reshape(len(y_coordinates), len(x_coordinates))
+        values = np.gradient(velocity_v, dx, axis=1) - np.gradient(velocity_u, dy, axis=0)
     else:
         values = data[args.field]
     plotted_fields.append(values.reshape(len(y_coordinates), len(x_coordinates)))
@@ -60,7 +64,7 @@ if case_name in {"buoyancy", "heated_wall", "thermal_bubble"} and args.field == 
         plotted_fields[frame] = plotted_fields[frame] - 273.15
 field_minimum = min(float(values.min()) for values in plotted_fields)
 field_maximum = max(float(values.max()) for values in plotted_fields)
-if args.field == "u":
+if args.field in {"u", "vorticity"}:
     field_maximum = max(abs(field_minimum), abs(field_maximum))
     field_minimum = -field_maximum
 if field_minimum == field_maximum:
@@ -100,7 +104,7 @@ else:
         size = (10, 5)
     figure, axes = plt.subplots(figsize=size, layout="constrained")
 
-label = {"T": "T [K]", "p": "p [Pa]", "speed": "|u| [m/s]", "u": "u [m/s]"}[args.field]
+label = {"T": "T [K]", "p": "p [Pa]", "speed": "|u| [m/s]", "u": "u [m/s]", "vorticity": "ω [1/s]"}[args.field]
 if case_name in {"buoyancy", "heated_wall", "thermal_bubble"} and args.field == "T":
     label = "T [°C]"
 coordinate_scale = 1
@@ -111,7 +115,7 @@ if show_temperature_profile:
 field_colormap = "magma"
 if args.field == "u":
     field_colormap = "coolwarm"
-if show_stokes:
+if show_stokes or args.field == "vorticity":
     field_colormap = LinearSegmentedColormap.from_list(
         "dark_velocity",
         [
@@ -137,7 +141,7 @@ image = axes.imshow(
 )
 figure.colorbar(image, ax=axes, label=label, shrink=0.75, pad=0.025)
 axes.set(xlabel=f"x [{unit}]", ylabel=f"y [{unit}]")
-if case_name == "thermal_bubble":
+if case_name in {"thermal_bubble", "oscillating_jet"}:
     axes.xaxis.set_major_locator(MaxNLocator(5))
     axes.yaxis.set_major_locator(MaxNLocator(6))
     axes.xaxis.set_major_formatter(
@@ -293,11 +297,20 @@ def analytical_temperature(time):
     return temperature
 
 
+show_jet = case_name == "oscillating_jet"
+if show_jet:
+    centre = metadata["inlet_center"]
+    half_width = metadata["inlet_half_width"]
+    axes.plot([0, 0], [centre - half_width, centre + half_width], color="#69d8e5", lw=4)
+    axes.plot([0, length], [0, 0], color="#667785", lw=2)
+    axes.plot([0, length], [height, height], color="#667785", lw=2)
+
 show_vectors = case_name in {
     "lid_cavity",
     "buoyancy",
     "thermal_bubble",
-} and args.field in {"speed", "T"}
+    "oscillating_jet",
+} and args.field in {"speed", "T", "vorticity"}
 if show_vectors:
     tracer_speed = 0.0
     for data in snapshots:
@@ -305,6 +318,8 @@ if show_vectors:
         tracer_speed = max(tracer_speed, float(speed.max()))
     tracer_speed = max(tracer_speed, metadata["top_velocity"], 1e-12)
     stride = 2
+    if show_jet:
+        stride = max(5, len(x_coordinates) // 26)
     vector_x, vector_y = np.meshgrid(x_coordinates[::stride], y_coordinates[::stride])
     vectors = axes.quiver(
         vector_x,
@@ -331,8 +346,11 @@ if show_vectors:
         axes.plot([0, length], [height, height], color="#62d8e5", linewidth=4)
 
     generator = np.random.default_rng(7)
-    particle_x = generator.uniform(dx, length - dx, 180)
-    particle_y = generator.uniform(dy, height - dy, 180)
+    particle_count = 180
+    if show_jet:
+        particle_count = 400
+    particle_x = generator.uniform(dx, length - dx, particle_count)
+    particle_y = generator.uniform(dy, height - dy, particle_count)
     playback_label = axes.text(
         0.02,
         0.03,
@@ -372,6 +390,17 @@ if show_vectors:
             data["v"].reshape(len(y_coordinates), len(x_coordinates)), 1
         )
         velocity_u[-1, 1:-1] = metadata["top_velocity"]
+        if show_jet:
+            position = (y_coordinates - metadata["inlet_center"]) / metadata["inlet_half_width"]
+            inlet_speed = metadata["inlet_velocity"] * np.maximum(0, 1 - position**2)
+            angle = 0.0
+            period = metadata.get("inlet_oscillation_period", 0.0)
+            if period > 0.0:
+                amplitude = np.deg2rad(metadata["inlet_angle_amplitude_degrees"])
+                angle = amplitude * np.sin(2 * np.pi * data["time"][0] / period)
+            velocity_u[1:-1, 0] = inlet_speed * np.cos(angle)
+            velocity_v[1:-1, 0] = inlet_speed * np.sin(angle)
+            velocity_u[1:-1, -1] = velocity_u[1:-1, -2]
         return velocity_u, velocity_v
 
     def interpolate(values, points):
@@ -425,6 +454,14 @@ if show_vectors:
                 (interpolate(velocity_u, midpoint), interpolate(velocity_v, midpoint))
             )
             cavity_particles += particle_dt * midpoint_velocity
+            if show_jet:
+                exited = cavity_particles[:, 0] >= length
+                cavity_particles[exited, 0] = 0.0
+                cavity_particles[exited, 1] = generator.uniform(
+                    metadata["inlet_center"] - 0.9 * metadata["inlet_half_width"],
+                    metadata["inlet_center"] + 0.9 * metadata["inlet_half_width"],
+                    np.count_nonzero(exited),
+                )
             cavity_particles[:, 0] = np.clip(cavity_particles[:, 0], 0, length)
             cavity_particles[:, 1] = np.clip(cavity_particles[:, 1], 0, height)
         cavity_positions.append(cavity_particles.copy())
@@ -507,8 +544,14 @@ def update(frame):
             (1 - fraction) * snapshots[left]["v"] + fraction * snapshots[right]["v"]
         ).reshape(len(y_coordinates), len(x_coordinates))
         vectors.set_UVC(velocity_u[::stride, ::stride], velocity_v[::stride, ::stride])
-        moving_particles.set_offsets(blend(cavity_positions))
-        if time == 0:
+        displayed_particles = blend(cavity_positions)
+        if show_jet:
+            restarted = np.abs(cavity_positions[right][:, 0] - cavity_positions[left][:, 0]) > length / 2
+            displayed_particles[restarted] = np.nan
+        moving_particles.set_offsets(displayed_particles)
+        if show_jet:
+            playback_text = f"Passive tracers · {times[-1]:g} s shown in {max(15, times[-1]):g} s"
+        elif time == 0:
             playback_text = "At rest"
         elif case_name in {"buoyancy", "thermal_bubble"}:
             playback_text = "Slow motion"
@@ -559,8 +602,13 @@ else:
             duration = 20
         playback_times = np.linspace(0, times[-1], duration * args.fps)
         animation_frames = np.interp(playback_times, times, np.arange(len(files)))
+    if show_jet:
+        playback_times = np.linspace(0, times[-1], int(max(15, times[-1]) * args.fps))
+        animation_frames = np.interp(playback_times, times, np.arange(len(files)))
     if show_vectors:
-        if case_name in {"buoyancy", "thermal_bubble"}:
+        if show_jet:
+            playback_times = np.linspace(0, times[-1], int(max(15, times[-1]) * args.fps))
+        elif case_name in {"buoyancy", "thermal_bubble"}:
             playback_times = np.linspace(0, min(8.0, times[-1]), 15 * args.fps)
         else:
             startup_end = min(5.0, times[-1])
