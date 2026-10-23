@@ -521,12 +521,10 @@ A parabolic jet enters a 60 mm × 30 mm channel through a 4.5 mm opening centred
 at $`y_c=19.5\,\mathrm{mm}`$. Its peak speed is $`U=0.04462\,\mathrm{m/s}`$:
 
 ```math
-U(y)=\begin{cases}
-U\left[1-\left(\frac{y-y_c}{b}\right)^2\right], & |y-y_c|<b,\\
-0, & |y-y_c|\ge b,
-\end{cases}
-\qquad b=2.25\,\mathrm{mm}.
+U(y)=U\left[1-\left(\frac{y-y_c}{b}\right)^2\right],\qquad \lvert y-y_c\rvert<b,\qquad b=2.25\,\mathrm{mm}.
 ```
+
+Outside the opening, $`U(y)=0`$.
 
 The direction is $`\theta(t)=20^\circ\sin(2\pi t/\tau)`$, with $`\tau=4\,\mathrm{s}`$.
 The inlet components are $`u(0,y,t)=U(y)\cos\theta(t)`$ and $`v(0,y,t)=U(y)\sin\theta(t)`$.
