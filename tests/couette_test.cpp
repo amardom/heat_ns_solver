@@ -56,6 +56,18 @@ TEST(Couette, MatchesAnalyticalStartupAtPhysicalTimes) {
         for (double velocity : solver.v.values) {
             EXPECT_NEAR(velocity, 0.0, 1e-12);
         }
+        double inlet_flow = 0.0;
+        double outlet_flow = 0.0;
+        for (int y = 1; y <= config.ny; ++y) {
+            EXPECT_NEAR(solver.u(0, y), solver.u(1, y), 1e-12);
+            EXPECT_NEAR(solver.u(config.nx, y), solver.u(config.nx - 1, y), 1e-12);
+            inlet_flow += solver.u(0, y) * solver.dy;
+            outlet_flow += solver.u(config.nx, y) * solver.dy;
+            for (int x = 1; x <= config.nx; ++x) {
+                EXPECT_NEAR(solver.pressure(x, y), 0.0, 1e-10);
+            }
+        }
+        EXPECT_NEAR(inlet_flow, outlet_flow, 1e-12);
         if (time == 2.0) {
             EXPECT_LT(solver.u(0, config.ny / 2), 0.3 * config.top.tangential_velocity);
         }
@@ -82,26 +94,4 @@ TEST(Couette, ApproachesSteadyLinearProfileAfterThirtySeconds) {
                 config.top.tangential_velocity, 1e-12);
     EXPECT_LT(maximum_error / config.top.tangential_velocity, 0.002);
     EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance);
-}
-
-TEST(Couette, PeriodicProjectionRemovesNonuniformDivergence) {
-    Config config = couette();
-    config.nx = 16;
-    config.ny = 12;
-    config.top.tangential_velocity = 0.0;
-    Solver solver(config);
-    double pi = std::acos(-1.0);
-    for (int y = 1; y <= config.ny; ++y) {
-        for (int x = 0; x < config.nx; ++x) {
-            solver.u(x, y) =
-                0.001 * std::sin(2 * pi * x / config.nx) * std::sin(pi * (y - 0.5) / config.ny);
-        }
-    }
-    solver.apply_velocity_boundaries();
-    EXPECT_GT(solver.maximum_divergence(), 1e-3);
-    solver.step();
-    EXPECT_LE(solver.maximum_divergence(), config.divergence_tolerance * 1.01);
-    for (int y = 1; y <= config.ny; ++y) {
-        EXPECT_DOUBLE_EQ(solver.u(0, y), solver.u(config.nx, y));
-    }
 }

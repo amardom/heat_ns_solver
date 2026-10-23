@@ -322,7 +322,32 @@ profile, orange the transient analytical solution, and dashed grey the steady li
 .venv/bin/python visualize.py results_couette --save results_couette/couette.gif
 ```
 
-Periodic left/right (flow leaving one side re-enters through the other, representing a repeating channel segment). $`\mathbf{u}(0,y,t)=\mathbf{u}(L,y,t)`$, where $`L`$ is the channel length. Fixed bottom wall; moving top wall. No imposed pressure gradient.
+The left and right ends are open, with the same prescribed pressure:
+
+$$
+P(0,y,t)=P(L,y,t)=0.
+$$
+
+For this developed channel flow, both ends use:
+
+$$
+\frac{\partial u}{\partial x}=0,\qquad v=0
+\quad\text{at }x=0,L.
+$$
+
+The horizontal velocity is calculated at both ends. The zero derivative means
+the profile does not change along $`x`$ there; it still evolves with time.
+Equal end pressures produce no driving pressure gradient: the moving top wall
+sets the fluid in motion through viscosity.
+
+The bottom wall is fixed and the top wall moves at $`U=0.05\,\mathrm{m/s}`$:
+
+$$
+\mathbf{u}(x,0,t)=(0,0),\qquad
+\mathbf{u}(x,H,t)=(U,0),
+$$
+
+where $`L`$ is the channel length and $`H`$ its height.
 Start from rest. Evolve for 30 s. Save every 0.1 s.
 
 [Couette tests](tests/couette_test.cpp): 0.1, 0.5, 2, 5, 8, 15, 30 s.
